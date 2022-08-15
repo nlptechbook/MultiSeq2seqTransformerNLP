@@ -1,5 +1,5 @@
 # MultiSeq2seq transformer model for NLP
-Increasing the number of relevant features is a good way to improve an ML model accuracy. In case of seq2seq models you can implement this concept by using additional input sequences, also known as covariates. 
+As a general rule, increasing the number of relevant features is a good way to improve an ML model accuracy. In case of seq2seq models you can implement this concept by using additional input sequences, also known as covariates. 
 
 ## **NER tagging task**
 
