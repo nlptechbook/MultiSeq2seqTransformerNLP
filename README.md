@@ -5,7 +5,7 @@ As a general rule, increasing the number of relevant features is a good way to i
 
 As an example of using a seq2seq model that can take multiple input sequences, consider using a transformer for the task of NER. Such a model could take the following sequences:
 
-- the sequence of tokens that make up the input text
+- the sequence of tokens that make up the input text (many models use only this one)
 - the sequence of the corresponding fine-grained part-of-speech (POS) tags
 - the sequence of the words that are most syntactically related to the words that can potentially be NER.
 
