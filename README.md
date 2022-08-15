@@ -9,7 +9,7 @@ As an example of using a seq2seq model that can take multiple input sequences, c
 - the sequence of the corresponding fine-grained part-of-speech (POS) tags
 - the sequence of the words that are most syntactically related to the words that can potentially be NER.
 
-In the rest, we discuss the implementation in Python. 
+Throughout the rest of this tutorial, we discuss the implementation in Python. 
 ```python
 import numpy as np
 import pandas as pd
