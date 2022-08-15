@@ -3,7 +3,7 @@ As a general rule, increasing the number of relevant features is a good way to i
 
 ## **NER tagging task**
 
-As an example of using a seq2seq model that can take multiple input sequences, consider using a transformer for the task of NER. Such a model could take the following sequences:
+As an example of using a seq2seq model that can take multiple input sequences, consider using a transformer for the task of Named-entity recognition (NER). Such a model could take the following sequences:
 
 - the sequence of tokens that make up the input text (many models use only this one)
 - the sequence of the corresponding fine-grained part-of-speech (POS) tags
@@ -20,7 +20,7 @@ df = pd.read_csv('ner_dataset.csv', encoding="latin1")
 df = df.fillna(method = 'ffill')
 df.head()
 ```
-Let's now get the list of words found in the corpus, and add one more "PAD" for padding purposes.
+Let's now get the list of words found in the corpus, and add one more word "PAD" for padding purposes.
 ```python
 words = list(df['Word'].unique())
 words.append("[PAD]")
@@ -39,7 +39,7 @@ We also need to get the list of NER tags to be used as prediction classes.
 tags = list(df['Tag'].unique())
 print(tags)
 ```
-Named entities can appear in a chunks of word, say: 'New York City'. We're using BIO tagging to identify boundaries:
+Named entities can appear in a chunks of word, say: 'New York City'. So, we're using BIO tagging to identify boundaries:
 
 - B-{entity} : Mark the begining of an entity chunk.
 - I-{entity} : Mark word inside the chunk.
@@ -60,7 +60,7 @@ df['Sentence #'] = pd.to_numeric(df['Sentence #'])
 data_grouped = df.groupby("Sentence #").apply(lambda x:[(word,tag,pos) for word, tag, pos in zip(x["Word"].values.tolist(),  x["Tag"].values.tolist(), x["POS"].values.tolist())])
 data_grouped.head(10)
 ```
-For convenience, we convert the Series into a list:
+For convenience, we convert the data_grouped Series into a list:
 ```python
 sent_groups = [sent_group for sent_group in data_grouped]
 ```
@@ -82,11 +82,13 @@ sentences = df.groupby("Sentence #").apply(lambda x:(' '.join(x["Word"].values.t
 ```
 The following simple test shows that the number of sentences is equal to the number of sent groups calculated previously.  
 ```python
-len(list(sentences))
+print(len(list(sentences)))
+print(len(sent_groups))
 
-len(sent_groups)
+47959
+47959
 ```
-Now we are ready to do syntactic dependency analysis with tools like spaCy.
+Now we are ready to do our syntactic dependency analysis with tools like spaCy.
 ```python
 import spacy
 from spacy.tokenizer import Tokenizer
@@ -96,13 +98,12 @@ nlp = spacy.load('en_core_web_sm', disable = ['ner'])
 In our dataset, words and numbers that contain hyphens come through as a single token. That is not the default spaCy's tokenizer behavior however. So we need to take care of it by creating a custom tokenizer.
 ```python
 def custom_tokenizer(nlp):
-    inf = list(nlp.Defaults.infixes)               # Default infixes
-    inf.remove(r"(?<=[0-9])[+\-\*^](?=[0-9-])")    # Remove the generic op between numbers or between a number and a -
-    inf = tuple(inf)                               # Convert inf to tuple
-    infixes = inf + tuple([r"(?<=[0-9])[+*^](?=[0-9-])", r"(?<=[0-9])-(?=-)"])  # Add the removed rule after subtracting (?<=[0-9])-(?=[0-9]) pattern
-    infixes = [x for x in infixes if '-|–|—|--|---|——|~' not in x] # Remove - between letters rule
+    inf = list(nlp.Defaults.infixes)               
+    inf.remove(r"(?<=[0-9])[+\-\*^](?=[0-9-])")    
+    inf = tuple(inf)                               
+    infixes = inf + tuple([r"(?<=[0-9])[+*^](?=[0-9-])", r"(?<=[0-9])-(?=-)"])  
+    infixes = [x for x in infixes if '-|–|—|--|---|——|~' not in x] 
     infix_re = compile_infix_regex(infixes)
-
     return Tokenizer(nlp.vocab, prefix_search=nlp.tokenizer.prefix_search,
                                 suffix_search=nlp.tokenizer.suffix_search,
                                 infix_finditer=infix_re.finditer,
@@ -116,6 +117,28 @@ Just a simple test to make sure it works as expected:
 doc = nlp('The London march came ahead of anti-war protests today in other cities , including Rome , Paris , and Madrid .')
 for t in doc:
   print(t.text, t.pos_)
+  
+The DET
+London PROPN
+march NOUN
+came VERB
+ahead ADV
+of ADP
+anti-war ADJ
+protests NOUN
+today NOUN
+in ADP
+other ADJ
+cities NOUN
+, PUNCT
+including VERB
+Rome PROPN
+, PUNCT
+Paris PROPN
+, PUNCT
+and CCONJ
+Madrid PROPN
+. PUNCT
 ```
 Now, we can proceed to our syntactic dependency analysis:
 ```python
@@ -135,7 +158,9 @@ for sent in list(sentences):
 
 The total number of elements in the sequence we just got must be equal to the number of elements in the other sequences.
 ```python
-len(heads)
+print(len(heads))
+
+47959
 ```
 Now we can move on to the next step of input data preproccesing and convert the text data into numbers. The point is, our model will expect numbers for processing, rather than words. So we need to do the following conversion, assigning each word in the vocabulary to a unique integer - the same for POS and NER tags. 
 ```python
@@ -177,7 +202,7 @@ The next step is to split the X and Y sets into training and test sets.
 from sklearn.model_selection import train_test_split
 x_train,x_test,y_train,y_test = train_test_split(X,y,test_size = 0.1,random_state=1)
 ```
-Now we can define a model to be trained on the above data. Below is an implementation of the typical transformer architecture adjusted to the task in hand. This arcitecture will be used as the prediction model for this assignment.
+Now we can define a model to be trained on the above data. Below is an implementation of the typical transformer architecture adjusted to the task in hand. This implementation is at the heart of the prediction model being built in this assignment.
 ```python
 import tensorflow as tf
 from tensorflow import keras
@@ -232,7 +257,7 @@ embed_dim = 128  # Embedding size for each token
 num_heads = 8  # Number of attention heads
 ff_dim = 128  # Hidden layer size in feed forward network inside transformer
 ```
-Here is the model assembly.
+Here is the model assembly:
 ```python
 inputs = layers.Input(shape=(3, sequence_length, ), dtype="int64")
 embedding_layer = TokenAndPositionEmbedding(sequence_length, max_pos, vocab_size, embed_dim)
@@ -253,16 +278,21 @@ Compiling and training the model.
 model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 print(model.summary())
 history = model.fit(x_train, y_train, validation_split =0.2, batch_size=batch_size, epochs=1)
+
+1080/1080 [==============================] - 2907s 3s/step - loss: 0.0124 - accuracy: 0.9960 - val_loss: 0.0095 - val_accuracy: 0.9967
 ```
 Now we can evaluate the model on the test data.
 ```python
 model.evaluate(x_test,y_test)
+
+150/150 [==============================] - 133s 884ms/step - loss: 0.0095 - accuracy: 0.9967
+[0.009520240128040314, 0.9966899752616882]
 ```
 Let's test our model on a new (previuosly unseen) sentence, as well as a previously unseen geo-NER. First try the first sentence, then the second. You'll see that the prediction depends a lot on the context (words surrounding the word in question).
 ```python
 new = "I worked for Rongo."
 new = "I am going to Rongo."
-#Then, you can try these sentences to see how it works with NERs that are obviously not geo-NERs.
+#Then, you can try the following sentences to see how it works with NERs that are obviously not geo-NERs.
 #new = "I worked for Tom."
 #new = "I am going to Tom."
 X1_new=[]
@@ -290,7 +320,7 @@ X3_new = keras.preprocessing.sequence.pad_sequences(sequences=[X3_new], maxlen=m
 X_new =np.stack((X1_new,X2_new,X3_new), axis = 1)
 predictions = model.predict(X_new)
 ```
-You can tune the threshold as needed.
+The treshold allows you to see the distribution of probabilities between the classes when the result is not obvious. You can tune the threshold as needed.
 ```python
 threshold = 0.9
 id2tag = {id: tag for id, tag in enumerate(tags)}
@@ -309,3 +339,4 @@ Rongo B-geo
 [0.34629568 0.6167148  0.03698955]
 . O
 ```
+Try now "I worked for Rongo." to see how the probabilites for word Rongo will change following a change in context.
